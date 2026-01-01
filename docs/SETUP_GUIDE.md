@@ -115,16 +115,24 @@
 
 **Checkpoint:** Green checkmark on OpenAI credential
 
-## Step 1.8: Configure n8n Credentials - Tavily (HTTP Header Auth)
+## Step 1.8: Configure n8n Credentials - Tavily (Custom Auth)
+Using Custom Auth keeps your API key out of exported workflow files.
+
 - [ ] In Credentials, click "Add Credential"
-- [ ] Search for "Header Auth"
-- [ ] Select "Header Auth"
-- [ ] Name: `Tavily API`
-- [ ] Header Name: `Authorization`
-- [ ] Header Value: `Bearer YOUR_TAVILY_API_KEY`
+- [ ] Search for **"Custom Auth"**
+- [ ] Configure:
+  - [ ] **Name:** `Tavily API`
+  - [ ] **JSON:**
+```json
+{
+  "headers": {
+    "X-API-Key": "tvly-YOUR_ACTUAL_KEY_HERE"
+  }
+}
+```
 - [ ] Click "Save"
 
-**Alternative - Tavily via body param:** If you prefer, you can skip this and put the API key directly in the HTTP Request node body. I'll show both approaches.
+**Why Custom Auth?** When you export your workflow.json, credentials are excluded - keeping your API key secure.
 
 **Checkpoint:** All three credentials configured (Google, OpenAI, Tavily)
 
@@ -181,28 +189,50 @@
 
 **Checkpoint:** IF node routes "Pending" items to True Branch
 
-## Step 2.5: Add HTTP Request - Tavily Search
+## Step 2.5a: Create Tavily Custom Auth Credential (Recommended)
+This keeps your API key out of the exported workflow.json file.
+
+- [ ] In n8n, click your **profile icon** (bottom left) → **Credentials**
+- [ ] Click **Add Credential**
+- [ ] Search for **"Custom Auth"**
+- [ ] Configure:
+  - [ ] **Name:** `Tavily API`
+  - [ ] **JSON:**
+```json
+{
+  "headers": {
+    "X-API-Key": "tvly-YOUR_ACTUAL_KEY_HERE"
+  }
+}
+```
+- [ ] Click **Save**
+
+**Checkpoint:** Custom Auth credential created for Tavily
+
+## Step 2.5b: Add HTTP Request - Tavily Search
 - [ ] Click + on the TRUE output of the IF node
 - [ ] Search for "HTTP Request"
 - [ ] Add HTTP Request node
 - [ ] In settings:
   - [ ] Method: `POST`
   - [ ] URL: `https://api.tavily.com/search`
-  - [ ] Authentication: `None` (we'll put key in body)
+  - [ ] Authentication: `Custom Auth`
+  - [ ] Credential: Select your **Tavily API** credential
   - [ ] Send Body: Toggle ON
   - [ ] Body Content Type: `JSON`
   - [ ] Specify Body: `Using Fields Below`
   - [ ] Add body parameters (click "Add Parameter" for each):
-    - [ ] Name: `api_key` | Value: `YOUR_TAVILY_API_KEY` (paste your actual key)
     - [ ] Name: `query` | Value: (Expression mode) `{{ $json.Topic }} latest trends 2024 2025`
     - [ ] Name: `search_depth` | Value: `advanced`
     - [ ] Name: `include_answer` | Value: `basic` (NOT `true` - API requires string)
     - [ ] Name: `max_results` | Value: `5`
 - [ ] Rename node: `Tavily Research`
 
-**IMPORTANT:** The `include_answer` parameter must be `basic` or `advanced` (strings), NOT boolean `true`.
+**IMPORTANT:**
+- The `include_answer` parameter must be `basic` or `advanced` (strings), NOT boolean `true`.
+- Do NOT add `api_key` to the body - it's handled by the Custom Auth credential.
 
-**Checkpoint:** Tavily node configured with API key and dynamic query
+**Checkpoint:** Tavily node configured with Custom Auth (API key not in workflow export)
 
 ## Step 2.6: Add Code Node - Aggregate Research
 - [ ] Click + on Tavily Research node

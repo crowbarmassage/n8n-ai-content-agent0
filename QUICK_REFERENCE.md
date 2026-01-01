@@ -7,7 +7,7 @@
 - [ ] Google Cloud project → Enable Sheets API → OAuth credentials
 - [ ] Google Sheet with columns: Topic, Status, LinkedIn_Post, X_Post, Blog_Summary, Published_Date, Research_Summary, Quality_Score
 - [ ] 2 test rows with Status = "Pending"
-- [ ] n8n credentials: Google Sheets OAuth, OpenAI API, Tavily (in body)
+- [ ] n8n credentials: Google Sheets OAuth, OpenAI API, Tavily (Custom Auth with X-API-Key header)
 
 ### 2. Node Sequence
 ```
@@ -118,4 +118,4 @@ submission/
 ```
 
 ## EXPORT SAFETY CHECK
-Open workflow.json in editor → Ctrl+F "api_key" → Should be empty/placeholder
+Open workflow.json in editor → Ctrl+F "tvly-" → Should find **nothing** (Custom Auth credentials are excluded from export)
