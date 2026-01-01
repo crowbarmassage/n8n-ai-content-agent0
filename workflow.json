@@ -1,0 +1,15 @@
+{
+  "name": "n8n AI Content Agent",
+  "nodes": [],
+  "connections": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "placeholder",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "PLACEHOLDER - Export your workflow from n8n and replace this file. See docs/SETUP_GUIDE.md for build instructions."
+  },
+  "tags": []
+}
