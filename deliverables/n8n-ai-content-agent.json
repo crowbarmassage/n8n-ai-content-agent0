@@ -1,0 +1,553 @@
+{
+  "name": "n8n-ai-content-agent",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        -496
+      ],
+      "id": "5c8eaed0-279b-40c1-bfb0-b5a5c1d83c14",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "n8n AI Content Agent - Topics",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -512,
+        -496
+      ],
+      "id": "68952754-99d1-4872-bca3-c199abe56dfd",
+      "name": "Read Topics",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b7aed6ff-c91f-4314-85b4-535058e58a82",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -352,
+        -496
+      ],
+      "id": "b384bebc-3580-4bc5-8fac-6816759cae1f",
+      "name": "Filter Pending"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.Topic }} latest trends 2024 2025"
+            },
+            {
+              "name": "search_depth",
+              "value": "advanced"
+            },
+            {
+              "name": "include_answer",
+              "value": "basic"
+            },
+            {
+              "name": "max_results",
+              "value": "5"
+            },
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -192,
+        -512
+      ],
+      "id": "d7d58d02-2275-4e63-a7fd-12df3c63a984",
+      "name": "Tavily Research",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tavilyData = $input.first().json;\nconst topicData = $('Read Topics').first().json;\n\nconst answer = tavilyData.answer || \"No summary available.\";\n\nconst topResults = (tavilyData.results || [])\n  .slice(0, 3)\n  .map(r => `• ${r.title}: ${r.content ? r.content.substring(0, 250) : 'No content'}...`)\n  .join(\"\\n\\n\");\n\nconst researchSummary = `\nTOPIC: ${topicData.Topic}\n\nAI SUMMARY:\n${answer}\n\nKEY SOURCES:\n${topResults}\n`.trim();\n\nreturn {\n  json: {\n    topic: topicData.Topic,\n    research_summary: researchSummary,\n    row_number: topicData.row_number || $('Read Topics').first().json.row_number,\n    original_data: topicData\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        -512
+      ],
+      "id": "2db11f49-01e3-46a9-80ad-9bbed962238e",
+      "name": "Aggregate Research"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a senior content strategist at a thought-leadership consultancy. Your expertise is transforming research and data into compelling LinkedIn posts that drive engagement and establish authority.\n\nWRITING GUIDELINES:\n1. HOOK: Start with a provocative statement, surprising statistic, or contrarian take.\n2. STRUCTURE: Use short paragraphs (1-3 sentences max).\n3. VOICE: Professional but conversational.\n4. EVIDENCE: Reference specific data from the research provided.\n5. VALUE: Every post must teach something actionable.\n6. ENGAGEMENT: End with a thought-provoking question.\n\nFORMAT REQUIREMENTS:\n- Length: 150-300 words\n- Paragraphs: 3-5 short paragraphs\n- Hashtags: 3-5 relevant hashtags at the end\n- NO bullet points or numbered lists\n- NO links in the body\n\nOUTPUT: Return ONLY the LinkedIn post text. No preamble."
+            },
+            {
+              "content": "=Topic: {{ $json.topic }}\n\nResearch:\n{{ $json.research_summary }}\n\nGenerate the LinkedIn post now."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        -272
+      ],
+      "id": "9d873f99-7da8-46a0-8629-e470b9fbed34",
+      "name": "Generate LinkedIn",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a viral social media specialist. You craft tweets that demand attention.\n\nGUIDELINES:\n1. Lead with the most surprising element\n2. Every word must earn its place - no filler\n3. Create curiosity gaps\n4. Use specific numbers and details\n\nFORMAT:\n- HARD LIMIT: 280 characters maximum\n- Hashtags: 1-2 maximum\n- No links\n\nOUTPUT: Return ONLY the tweet. Verify it's under 280 characters."
+            },
+            {
+              "content": "=Topic: {{ $json.topic }}\n\nResearch:\n{{ $json.research_summary }}\n\nGenerate the tweet now.\n\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        192,
+        -480
+      ],
+      "id": "bebc4cac-ffeb-4e44-b85c-06a97c73b59b",
+      "name": "Generate X Post",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an SEO-savvy content writer. Your summaries are scannable and value-forward.\n\nGUIDELINES:\n1. Lead with why this matters to the reader\n2. Structure: Context → Key insights → Takeaway\n3. Naturally incorporate relevant keywords\n4. Include at least one specific statistic\n\nFORMAT:\n- Length: 150-200 words\n- 2-3 paragraphs\n- No bullet points, no headers\n- Third person voice\n\nOUTPUT: Return ONLY the blog summary.\n"
+            },
+            {
+              "content": "=Topic: {{ $json.topic }}\n\nResearch:\n{{ $json.research_summary }}\n\nGenerate the blog summary now.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        192,
+        -48
+      ],
+      "id": "4e70c981-34bd-40b9-ba26-ff87e320a651",
+      "name": "Generate Blog",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        -272
+      ],
+      "id": "9899ea0a-c32b-432c-bab3-fac07904615b",
+      "name": "Combine Content",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all 3 items from merge (in connection order)\nconst items = $input.all();\n\n// Extract text from each item by position\n// Adjust the order [0, 1, 2] based on how you connected them to Merge\nconst linkedin = items[0]?.json?.output?.[0]?.content?.[0]?.text || '';\nconst xPost = items[1]?.json?.output?.[0]?.content?.[0]?.text || '';\nconst blog = items[2]?.json?.output?.[0]?.content?.[0]?.text || '';\n\n// Get original data from Aggregate Research\nconst aggregateData = $('Aggregate Research').first().json;\n\nreturn {\n  json: {\n    topic: aggregateData.topic,\n    linkedin_post: linkedin,\n    x_post: xPost,\n    blog_summary: blog,\n    research_summary: aggregateData.research_summary,\n    row_number: aggregateData.row_number,\n    published_date: new Date().toISOString()\n  }\n};\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        -272
+      ],
+      "id": "075c4c20-b675-4307-b8c6-ce99fcb44702",
+      "name": "Structure Output"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "n8n AI Content Agent - Topics",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Completed",
+            "LinkedIn_Post": "={{ $json.linkedin_post }}",
+            "X_Post": "={{ $json.x_post }}",
+            "Blog_Summary": "={{ $json.blog_summary }}",
+            "Published_Date": "={{ $json.published_date }}",
+            "Research_Summary": "={{ $json.research_summary }}",
+            "Topic": "={{ $json.topic }}",
+            "row_number": "={{ $json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "LinkedIn_Post",
+              "displayName": "LinkedIn_Post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "X_Post",
+              "displayName": "X_Post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Blog_Summary",
+              "displayName": "Blog_Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Published_Date",
+              "displayName": "Published_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Research_Summary",
+              "displayName": "Research_Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Quality_Score",
+              "displayName": "Quality_Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        128
+      ],
+      "id": "79434c90-9fbf-4ea9-ad66-b95b86fd02d3",
+      "name": "Update Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Read Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Topics": {
+      "main": [
+        [
+          {
+            "node": "Filter Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Pending": {
+      "main": [
+        [
+          {
+            "node": "Tavily Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tavily Research": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Research": {
+      "main": [
+        [
+          {
+            "node": "Generate X Post",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Blog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate X Post": {
+      "main": [
+        [
+          {
+            "node": "Combine Content",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Generate LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Combine Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Blog": {
+      "main": [
+        [
+          {
+            "node": "Combine Content",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Combine Content": {
+      "main": [
+        [
+          {
+            "node": "Structure Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Output": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "6ff2b57e-ac8c-46c0-ba68-2b7c1b360f51",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "w4s8M9f0enuS5GDR",
+  "tags": []
+}
