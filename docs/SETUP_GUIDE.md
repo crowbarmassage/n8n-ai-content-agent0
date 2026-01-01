@@ -153,30 +153,33 @@
 - [ ] Click the + button on the Manual Trigger node (right side)
 - [ ] Search for "Google Sheets"
 - [ ] Select "Google Sheets"
+- [ ] Select action: **"Get row(s) in sheet"** (under Sheet Within Document Actions)
 - [ ] In the node settings panel (right side):
   - [ ] Credential: Select your Google Sheets credential
   - [ ] Resource: `Sheet Within Document`
-  - [ ] Operation: `Get Many`
-  - [ ] Document: Click and search for your spreadsheet name, or paste ID
+  - [ ] Operation: `Get Row(s)`
+  - [ ] Document: Click "Choose..." and select your spreadsheet name
   - [ ] Sheet: `Sheet1` (or your main sheet name)
-  - [ ] Return All: Toggle ON
 - [ ] Rename node: Double-click node title → `Read Topics`
-- [ ] Click outside node to close panel
+- [ ] Click **Execute step** to test - you should see your rows in OUTPUT
 
-**Checkpoint:** Google Sheets node connected to trigger
+**Checkpoint:** Google Sheets node connected to trigger, shows your data
 
 ## Step 2.4: Add IF Node - Filter Pending
 - [ ] Click + on the Read Topics node
 - [ ] Search for "IF"
 - [ ] Add the IF node
 - [ ] In settings:
-  - [ ] Conditions: 
-    - [ ] Value 1: Click field → Select "Expression" → type: `{{ $json.Status }}`
+  - [ ] Conditions:
+    - [ ] Value 1: Click field → Click **Expression** tab (or `fx` icon) → type: `{{ $json.Status }}`
     - [ ] Operation: `is equal to`
-    - [ ] Value 2: `Pending`
+    - [ ] Value 2: `Pending` (plain text, NOT expression mode)
 - [ ] Rename node: `Filter Pending`
+- [ ] Click **Execute step** to test - item should appear in "True Branch" tab
 
-**Checkpoint:** IF node checks Status = Pending
+**IMPORTANT:** Value 1 must be in Expression mode (purple/highlighted), Value 2 stays as plain text.
+
+**Checkpoint:** IF node routes "Pending" items to True Branch
 
 ## Step 2.5: Add HTTP Request - Tavily Search
 - [ ] Click + on the TRUE output of the IF node
@@ -185,16 +188,19 @@
 - [ ] In settings:
   - [ ] Method: `POST`
   - [ ] URL: `https://api.tavily.com/search`
-  - [ ] Authentication: None (we'll put key in body)
+  - [ ] Authentication: `None` (we'll put key in body)
+  - [ ] Send Body: Toggle ON
   - [ ] Body Content Type: `JSON`
   - [ ] Specify Body: `Using Fields Below`
-  - [ ] Add body parameters:
-    - [ ] Name: `api_key` | Value: `YOUR_TAVILY_API_KEY` (paste actual key)
-    - [ ] Name: `query` | Value: (click Expression) `{{ $json.Topic }} latest trends 2024 2025`
+  - [ ] Add body parameters (click "Add Parameter" for each):
+    - [ ] Name: `api_key` | Value: `YOUR_TAVILY_API_KEY` (paste your actual key)
+    - [ ] Name: `query` | Value: (Expression mode) `{{ $json.Topic }} latest trends 2024 2025`
     - [ ] Name: `search_depth` | Value: `advanced`
-    - [ ] Name: `include_answer` | Value: `true` (toggle to expression, type `true`)
-    - [ ] Name: `max_results` | Value: `5` (as number)
+    - [ ] Name: `include_answer` | Value: `basic` (NOT `true` - API requires string)
+    - [ ] Name: `max_results` | Value: `5`
 - [ ] Rename node: `Tavily Research`
+
+**IMPORTANT:** The `include_answer` parameter must be `basic` or `advanced` (strings), NOT boolean `true`.
 
 **Checkpoint:** Tavily node configured with API key and dynamic query
 
@@ -267,10 +273,10 @@ return {
 ## Step 3.1: Add OpenAI Node - LinkedIn Generator
 - [ ] Click + on Aggregate Research node
 - [ ] Search for "OpenAI"
-- [ ] Select "OpenAI" (the main one, not embeddings)
+- [ ] Select "OpenAI" → Select **"Message a model"** (under Text Actions)
 - [ ] In settings:
   - [ ] Credential: Select your OpenAI credential
-  - [ ] Resource: `Chat`
+  - [ ] Resource: `Text`
   - [ ] Operation: `Message a Model`
   - [ ] Model: `gpt-4o-mini`
   - [ ] Messages:
@@ -293,8 +299,8 @@ Generate the LinkedIn post now.
 ## Step 3.2: Add OpenAI Node - X/Twitter Generator
 - [ ] **IMPORTANT:** We need parallel execution. Click back on `Aggregate Research` node
 - [ ] Click + on it to add another branch (not after LinkedIn)
-- [ ] Add another OpenAI node
-- [ ] Same credential and resource settings
+- [ ] Add another OpenAI node → Select **"Message a model"**
+- [ ] Resource: `Text`, Operation: `Message a Model`
 - [ ] Model: `gpt-4o-mini`
 - [ ] Messages:
   - [ ] System message: (see PROMPTS.md - X/Twitter System Prompt)
@@ -316,8 +322,8 @@ Generate the tweet now.
 ## Step 3.3: Add OpenAI Node - Blog Summary Generator
 - [ ] Click on `Aggregate Research` again
 - [ ] Click + to create third branch
-- [ ] Add OpenAI node
-- [ ] Same credential setup
+- [ ] Add OpenAI node → Select **"Message a model"**
+- [ ] Resource: `Text`, Operation: `Message a Model`
 - [ ] Model: `gpt-4o-mini`
 - [ ] Messages:
   - [ ] System: (see PROMPTS.md - Blog Summary System Prompt)
@@ -344,11 +350,12 @@ Generate the blog summary now.
   - [ ] Drag from Generate X Post output → to Merge input
   - [ ] Drag from Generate Blog output → to Merge input
 - [ ] In Merge settings:
-  - [ ] Mode: `Combine`
-  - [ ] Combination Mode: `Merge By Position`
+  - [ ] Mode: `Append`
 - [ ] Rename: `Combine Content`
 
-**Checkpoint:** All three generators feed into single Merge node
+**Note:** The connection order matters! Connect in this order: LinkedIn first, X Post second, Blog third. The Structure Output code relies on this order.
+
+**Checkpoint:** All three generators feed into single Merge node (OUTPUT shows 3 items)
 
 ## Step 3.5: Add Code Node - Structure Final Output
 - [ ] Click + on Combine Content
@@ -356,76 +363,26 @@ Generate the blog summary now.
 - [ ] JavaScript code:
 
 ```javascript
-// Structure the three generated contents for sheet update
+// Get all 3 items from merge (in connection order)
 const items = $input.all();
 
-// Get content from each branch (order matters based on connection order)
-// We'll extract from the message content
-let linkedin = '';
-let xPost = '';
-let blog = '';
-let topic = '';
-let rowNumber = '';
-let researchSummary = '';
+// Extract text from each item by position
+// Order: [0] = LinkedIn, [1] = X Post, [2] = Blog (based on connection order to Merge)
+const linkedin = items[0]?.json?.output?.[0]?.content?.[0]?.text || '';
+const xPost = items[1]?.json?.output?.[0]?.content?.[0]?.text || '';
+const blog = items[2]?.json?.output?.[0]?.content?.[0]?.text || '';
 
-// Iterate through merged items to extract content
-for (const item of items) {
-  const data = item.json;
-  
-  // Check which type of content this is based on the node that produced it
-  if (data.message && data.message.content) {
-    const content = data.message.content;
-    
-    // Identify by content characteristics
-    if (content.length <= 300 && (content.includes('#') || content.length < 200)) {
-      // Likely X post (short with hashtags)
-      if (!xPost || content.length < xPost.length) {
-        xPost = content;
-      }
-    } else if (content.length > 500 || content.includes('paragraph')) {
-      // Likely LinkedIn (longer)
-      linkedin = content;
-    } else {
-      // Likely blog summary
-      blog = content;
-    }
-  }
-  
-  // Get topic and row from the earlier node
-  if (data.topic) topic = data.topic;
-  if (data.row_number) rowNumber = data.row_number;
-  if (data.research_summary) researchSummary = data.research_summary;
-}
-
-// If detection isn't working, we'll use position-based assignment
-// This is more reliable - assuming connection order: LinkedIn, X, Blog
-if (!linkedin && items[0]?.json?.message?.content) {
-  linkedin = items[0].json.message.content;
-}
-if (!xPost && items[1]?.json?.message?.content) {
-  xPost = items[1].json.message.content;
-}
-if (!blog && items[2]?.json?.message?.content) {
-  blog = items[2].json.message.content;
-}
-
-// Get topic from the Aggregate Research node's output
+// Get original data from Aggregate Research
 const aggregateData = $('Aggregate Research').first().json;
-topic = aggregateData.topic;
-researchSummary = aggregateData.research_summary;
-
-// Get row info from Read Topics
-const readData = $('Read Topics').first().json;
-rowNumber = readData.row_number;
 
 return {
   json: {
-    topic: topic,
+    topic: aggregateData.topic,
     linkedin_post: linkedin,
     x_post: xPost,
     blog_summary: blog,
-    research_summary: researchSummary,
-    row_number: rowNumber,
+    research_summary: aggregateData.research_summary,
+    row_number: aggregateData.row_number,
     published_date: new Date().toISOString()
   }
 };
@@ -433,7 +390,9 @@ return {
 
 - [ ] Rename: `Structure Output`
 
-**Checkpoint:** Code node combines all content into single object
+**IMPORTANT:** The order `[0]`, `[1]`, `[2]` depends on how you connected the generators to the Merge node. If content appears in wrong fields, adjust the indices.
+
+**Checkpoint:** Code node combines all content into single object with all 3 pieces populated
 
 ## Step 3.6: Test Content Generation
 - [ ] Run the full workflow test
@@ -449,23 +408,26 @@ return {
 
 ## Step 4.1: Add Google Sheets - Update Row
 - [ ] Click + on Structure Output
-- [ ] Add Google Sheets node
+- [ ] Add Google Sheets node → Select **"Update row in sheet"**
 - [ ] Settings:
   - [ ] Credential: Your Google Sheets credential
   - [ ] Resource: `Sheet Within Document`
   - [ ] Operation: `Update Row`
-  - [ ] Document: Your spreadsheet
-  - [ ] Sheet: Sheet1
-  - [ ] Row Number (Expression): `{{ $json.row_number }}`
-- [ ] Now add column mappings. Click "Add Column":
-  - [ ] Column: `Status` → Value: `Completed`
-  - [ ] Column: `LinkedIn_Post` → Value (Expression): `{{ $json.linkedin_post }}`
-  - [ ] Column: `X_Post` → Value (Expression): `{{ $json.x_post }}`
-  - [ ] Column: `Blog_Summary` → Value (Expression): `{{ $json.blog_summary }}`
-  - [ ] Column: `Published_Date` → Value (Expression): `{{ $json.published_date }}`
-  - [ ] Column: `Research_Summary` → Value (Expression): `{{ $json.research_summary }}`
-  - [ ] Column: `Quality_Score` → Value: `Pass` (we'll make dynamic in Phase 7)
+  - [ ] Document: Select your spreadsheet
+  - [ ] Sheet: `Sheet1`
+  - [ ] Mapping Column Mode: `Map Each Column Manually`
+  - [ ] Column to match on: `row_number`
+  - [ ] **row_number (using to match)**: (Expression mode) `{{ $json.row_number }}`
+- [ ] Add column values (click "Add Field" for each):
+  - [ ] `Status` → Value: `Completed`
+  - [ ] `LinkedIn_Post` → Value: (Expression mode) `{{ $json.linkedin_post }}`
+  - [ ] `X_Post` → Value: (Expression mode) `{{ $json.x_post }}`
+  - [ ] `Blog_Summary` → Value: (Expression mode) `{{ $json.blog_summary }}`
+  - [ ] `Published_Date` → Value: (Expression mode) `{{ $json.published_date }}`
+  - [ ] `Research_Summary` → Value: (Expression mode) `{{ $json.research_summary }}`
 - [ ] Rename: `Update Sheet`
+
+**IMPORTANT:** For all `{{ }}` expressions, make sure the field is in **Expression mode** (click the toggle or `fx` icon). If you see the literal text `{{ $json.xxx }}` in your output instead of actual content, the field is not in Expression mode.
 
 **Checkpoint:** Sheet update node configured with all columns
 

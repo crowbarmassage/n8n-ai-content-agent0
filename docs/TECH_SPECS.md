@@ -134,17 +134,16 @@ https://www.googleapis.com/auth/drive.file
 ```json
 {
   "api_key": "{{TAVILY_API_KEY}}",
-  "query": "{{topic}} latest news trends 2024 2025",
+  "query": "{{topic}} latest trends 2024 2025",
   "search_depth": "advanced",
-  "include_answer": true,
-  "include_raw_content": false,
+  "include_answer": "basic",
   "max_results": 5
 }
 ```
 
 **Why these settings:**
 - `search_depth: advanced` → More comprehensive results (worth the extra latency)
-- `include_answer: true` → Tavily provides an AI-summarized answer
+- `include_answer: "basic"` → Tavily provides an AI-summarized answer (must be string "basic" or "advanced", NOT boolean)
 - `max_results: 5` → Balance between comprehensiveness and token cost
 
 ### 2.3 OpenAI Configuration
