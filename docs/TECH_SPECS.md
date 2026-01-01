@@ -130,21 +130,30 @@ https://www.googleapis.com/auth/drive.file
 
 **Endpoint:** `https://api.tavily.com/search`
 
-**Request Parameters:**
+**Authentication (Recommended - Custom Auth):**
+Use n8n Custom Auth credential with header-based authentication to keep API key out of exported workflow:
 ```json
 {
-  "api_key": "{{TAVILY_API_KEY}}",
-  "query": "{{topic}} latest news trends 2024 2025",
+  "headers": {
+    "X-API-Key": "tvly-YOUR_API_KEY"
+  }
+}
+```
+
+**Request Body Parameters:**
+```json
+{
+  "query": "{{topic}} latest trends 2024 2025",
   "search_depth": "advanced",
-  "include_answer": true,
-  "include_raw_content": false,
+  "include_answer": "basic",
   "max_results": 5
 }
 ```
 
 **Why these settings:**
+- `X-API-Key` header → Keeps API key out of workflow export (credentials are excluded)
 - `search_depth: advanced` → More comprehensive results (worth the extra latency)
-- `include_answer: true` → Tavily provides an AI-summarized answer
+- `include_answer: "basic"` → Tavily provides an AI-summarized answer (must be string "basic" or "advanced", NOT boolean)
 - `max_results: 5` → Balance between comprehensiveness and token cost
 
 ### 2.3 OpenAI Configuration

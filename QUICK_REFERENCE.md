@@ -7,14 +7,14 @@
 - [ ] Google Cloud project → Enable Sheets API → OAuth credentials
 - [ ] Google Sheet with columns: Topic, Status, LinkedIn_Post, X_Post, Blog_Summary, Published_Date, Research_Summary, Quality_Score
 - [ ] 2 test rows with Status = "Pending"
-- [ ] n8n credentials: Google Sheets OAuth, OpenAI API, Tavily (in body)
+- [ ] n8n credentials: Google Sheets OAuth, OpenAI API, Tavily (Custom Auth with X-API-Key header)
 
 ### 2. Node Sequence
 ```
-Manual Trigger → Read Topics → Add Row Numbers (Code) → Filter Pending (IF) 
-→ Tavily Research (HTTP) → Aggregate Research (Code)
-→ [Parallel: LinkedIn | X | Blog] (3 OpenAI nodes)
-→ Combine Content (Merge) → Structure Output (Code) → Update Sheet (Google Sheets)
+Manual Trigger → Read Topics (Google Sheets) → Filter Pending (IF)
+→ Tavily Research (HTTP Request) → Aggregate Research (Code)
+→ [Parallel: Generate LinkedIn | Generate X Post | Generate Blog] (3 OpenAI nodes)
+→ Combine Content (Merge - Append mode) → Structure Output (Code) → Update Sheet (Google Sheets)
 ```
 
 ### 3. Key Expressions
@@ -80,7 +80,7 @@ Manual Trigger → Read Topics → Add Row Numbers (Code) → Filter Pending (IF
 ## COMMON ISSUES & FIXES
 
 **"row_number is undefined"**
-→ Add Code node after Read Topics that adds row_number = index + 2
+→ Google Sheets node automatically includes row_number. Check OUTPUT JSON to confirm field name.
 
 **"Cannot read property of undefined"**
 → Check node connections, ensure previous node output matches expected input
@@ -88,8 +88,20 @@ Manual Trigger → Read Topics → Add Row Numbers (Code) → Filter Pending (IF
 **Tweet exceeds 280 chars**
 → Lower max_tokens to 80, add "STRICT 280 CHARACTER LIMIT" to prompt
 
+**Tavily "Invalid value for include_answer"**
+→ Use `include_answer: "basic"` (string), NOT boolean `true`
+
 **Tavily returns empty**
 → Check API key is correct, try simpler query without date filters
+
+**IF node sends to False Branch**
+→ Make sure Value 1 is in **Expression mode** (purple), Value 2 is plain text
+
+**Google Sheets Update shows literal `{{ $json.xxx }}`**
+→ Switch each value field to **Expression mode** (click Fixed/Expression toggle)
+
+**LinkedIn/X/Blog content in wrong fields**
+→ Check connection order to Merge node, adjust indices in Structure Output code
 
 **Google Sheets auth fails**
 → Re-authenticate in n8n credentials, check OAuth consent screen is published
@@ -106,4 +118,4 @@ submission/
 ```
 
 ## EXPORT SAFETY CHECK
-Open workflow.json in editor → Ctrl+F "api_key" → Should be empty/placeholder
+Open workflow.json in editor → Ctrl+F "tvly-" → Should find **nothing** (Custom Auth credentials are excluded from export)
